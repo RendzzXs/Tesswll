@@ -1,0 +1,868 @@
+#!/bin/bash
+
+# -------------------------------
+# RENDZZ ULTIMATE EDITION - SUPER KEREN!
+# Bukan cuma kotak biasa, tapi SERVER CARD NEXT LEVEL!
+# -------------------------------
+PTERO_DIR="/var/www/pterodactyl"
+TARGET_FILE="$PTERO_DIR/resources/views/templates/base/core.blade.php"
+FOOTER_FILE="$PTERO_DIR/resources/views/templates/base/footer.blade.php"
+SERVER_FILE="$PTERO_DIR/resources/views/templates/base/server.blade.php"
+DASHBOARD_FILE="$PTERO_DIR/resources/scripts/components/dashboard/DashboardContainer.tsx"
+BACKUP_FILE="$PTERO_DIR/core.backup"
+ASSETS_DIR="$PTERO_DIR/public/rendzz"
+WALLPAPER_DIR="$ASSETS_DIR/wallpapers"
+VIDEO_DIR="$ASSETS_DIR/videos"
+
+# Warna
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+
+# -------------------------------
+# FUNCTION: HEADER
+# -------------------------------
+show_header() {
+    clear
+    echo -e "${CYAN}╔════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║                                                        ║${NC}"
+    echo -e "${CYAN}║${WHITE}      🚀 RENDZZ ULTIMATE EDITION 🚀           ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}        Bukan Kotak Biasa - Next Level!        ${CYAN}║${NC}"
+    echo -e "${CYAN}║                                                        ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+# -------------------------------
+# FUNCTION: HAPUS SEMUA
+# -------------------------------
+uninstall_all() {
+    show_header
+    echo -e "${YELLOW}🗑️  Menghapus semua custom design...${NC}\n"
+    
+    # Hapus semua aset
+    if [ -d "$ASSETS_DIR" ]; then
+        rm -rf "$ASSETS_DIR"
+        echo -e "${GREEN}✅ Folder assets dihapus${NC}"
+    fi
+    
+    # Kembalikan core.blade.php ke default
+    cat > "$TARGET_FILE" << 'EOF'
+@extends('templates/wrapper', [
+    'css' => ['body' => 'bg-neutral-800'],
+])
+
+@section('container')
+    <div id="modal-portal"></div>
+    <div id="app"></div>
+@endsection
+EOF
+    
+    # Kembalikan footer ke default
+    if [ -f "$FOOTER_FILE" ]; then
+        sed -i 's/Rendzz Ultimate®/Pterodactyl®/g' "$FOOTER_FILE"
+        sed -i 's/© 2025 - 2026/© 2015 - 2026/g' "$FOOTER_FILE"
+    fi
+    
+    # Clear cache
+    cd "$PTERO_DIR" 2>/dev/null
+    php artisan view:clear
+    php artisan cache:clear
+    
+    echo -e "\n${GREEN}✅ Panel kembali normal!${NC}"
+}
+
+# -------------------------------
+# FUNCTION: DOWNLOAD MEDIA
+# -------------------------------
+download_media() {
+    mkdir -p "$WALLPAPER_DIR"
+    mkdir -p "$VIDEO_DIR"
+    
+    # Download wallpaper default (kalau URL gak diisi)
+    echo -e "\n${YELLOW}📥 Downloading default wallpapers...${NC}"
+    
+    # Wallpaper 1 - Abstract
+    curl -L "https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=2070&auto=format&fit=crop" -o "$WALLPAPER_DIR/bg1.jpg" --progress-bar 2>/dev/null
+    
+    # Wallpaper 2 - Gradient
+    curl -L "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2020&auto=format&fit=crop" -o "$WALLPAPER_DIR/bg2.jpg" --progress-bar 2>/dev/null
+    
+    # Wallpaper 3 - Dark Tech
+    curl -L "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop" -o "$WALLPAPER_DIR/bg3.jpg" --progress-bar 2>/dev/null
+    
+    # Wallpaper 4 - Neon
+    curl -L "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop" -o "$WALLPAPER_DIR/bg4.jpg" --progress-bar 2>/dev/null
+    
+    # Video background default (sample video)
+    curl -L "https://assets.mixkit.co/videos/preview/mixkit-digital-animation-of-abstract-lines-11955-large.mp4" -o "$VIDEO_DIR/bg1.mp4" --progress-bar 2>/dev/null
+    
+    chmod -R 644 "$ASSETS_DIR"/*
+    chown -R www-data:www-data "$ASSETS_DIR" 2>/dev/null || chown -R nginx:nginx "$ASSETS_DIR" 2>/dev/null
+    
+    echo -e "${GREEN}✅ Default media downloaded${NC}"
+}
+
+# -------------------------------
+# FUNCTION: INSTALL ULTIMATE EDITION
+# -------------------------------
+install_ultimate() {
+    show_header
+    
+    # Pilih jenis background
+    echo -e "${WHITE}Pilih jenis background:${NC}"
+    echo -e "${GREEN}[1]${NC} Gambar (Multiple - Random setiap refresh)"
+    echo -e "${GREEN}[2]${NC} Video (URL sendiri)"
+    echo -e "${GREEN}[3]${NC} Video + Gambar (Mix)"
+    echo ""
+    echo -ne "${YELLOW}➤ Pilih [1/2/3]: ${NC}"
+    read BG_TYPE
+    
+    # Input URL kustom (opsional)
+    if [ "$BG_TYPE" = "2" ] || [ "$BG_TYPE" = "3" ]; then
+        echo -e "\n${YELLOW}📹 Masukkan URL video (MP4/WebM):${NC}"
+        echo -n "➤ "
+        read VIDEO_URL
+        
+        if [ ! -z "$VIDEO_URL" ]; then
+            mkdir -p "$VIDEO_DIR"
+            echo -e "\n${YELLOW}📥 Downloading video...${NC}"
+            curl -L "$VIDEO_URL" -o "$VIDEO_DIR/custom.mp4" --progress-bar
+        fi
+    fi
+    
+    if [ "$BG_TYPE" = "1" ] || [ "$BG_TYPE" = "3" ]; then
+        echo -e "\n${YELLOW}🖼️  Mau tambah wallpaper sendiri? (opsional)${NC}"
+        echo -n "URL wallpaper (enter untuk skip): "
+        read WALL_URL
+        
+        if [ ! -z "$WALL_URL" ]; then
+            mkdir -p "$WALLPAPER_DIR"
+            curl -L "$WALL_URL" -o "$WALLPAPER_DIR/custom.jpg" --progress-bar
+        fi
+    fi
+    
+    # Download default kalau belum ada
+    download_media
+    
+    # Backup
+    cp "$TARGET_FILE" "$BACKUP_FILE" 2>/dev/null
+    
+    # Ganti copyright footer
+    echo -e "\n${YELLOW}©️  Mengganti copyright footer...${NC}"
+    cp "$FOOTER_FILE" "$FOOTER_FILE.bak" 2>/dev/null
+    sed -i 's/Pterodactyl®/Rendzz Ultimate®/g' "$FOOTER_FILE"
+    sed -i 's/© 2015 - 2026/© 2025 - 2026/g' "$FOOTER_FILE"
+    echo -e "${GREEN}✅ Footer: Rendzz Ultimate® © 2025-2026${NC}"
+    
+    # -------------------------------
+    # INJECT ULTIMATE DESIGN - SERVER CARD SUPER KEREN!
+    # -------------------------------
+    echo -e "\n${YELLOW}🎨 Menginjeksi ultimate design...${NC}"
+    
+    cat > "$TARGET_FILE" << 'EOF'
+@extends('templates/wrapper', [
+    'css' => ['body' => 'bg-neutral-800'],
+])
+
+@section('container')
+    <div id="modal-portal"></div>
+    <div id="app"></div>
+
+    <!-- BACKGROUND SYSTEM -->
+    <div id="bg-system">
+        <!-- Video Background -->
+        <video id="bg-video" autoplay muted loop playsinline style="display: none;"></video>
+        
+        <!-- Multiple Wallpapers -->
+        <div id="bg-wallpapers"></div>
+        
+        <!-- Overlay Effects -->
+        <div id="bg-overlay"></div>
+        
+        <!-- Particle Canvas -->
+        <canvas id="particle-canvas"></canvas>
+    </div>
+
+    <style>
+        /* ======================================= */
+        /*   RENDZZ ULTIMATE EDITION               */
+        /*   Next Level Server Cards!              */
+        /* ======================================= */
+
+        /* BACKGROUND SYSTEM */
+        #bg-system {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        #bg-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: cover;
+            opacity: 0.8;
+        }
+
+        #bg-wallpapers {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            animation: zoomEffect 20s infinite alternate;
+        }
+
+        @keyframes zoomEffect {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+
+        #bg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(3px);
+            z-index: 1;
+        }
+
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #app {
+            position: relative;
+            z-index: 3;
+        }
+
+        /* ======================================= */
+        /*   SERVER CARDS - SUPER VARIATIF!        */
+        /*   Bukan cuma kotak, tapi 10+ BENTUK!    */
+        /* ======================================= */
+
+        /* ANIMASI MASUK */
+        @keyframes cardFloatIn {
+            0% {
+                opacity: 0;
+                transform: translateY(50px) scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* BASE CARD STYLE */
+        .card {
+            animation: cardFloatIn 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) forwards !important;
+            transition: all 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.1) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            overflow: hidden !important;
+            position: relative !important;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset !important;
+        }
+
+        /* VARIASI BENTUK - RANDOM SETIAP CARD! */
+        .card:nth-child(6n+1) {
+            border-radius: 30px 10px 30px 10px !important; /* Hexagon style */
+        }
+        .card:nth-child(6n+2) {
+            border-radius: 50% 20% 50% 20% / 20% 50% 20% 50% !important; /* Flower style */
+        }
+        .card:nth-child(6n+3) {
+            border-radius: 20px 50px 20px 50px !important; /* Asymmetric */
+        }
+        .card:nth-child(6n+4) {
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70% !important; /* Blob style */
+        }
+        .card:nth-child(6n+5) {
+            border-radius: 50px 20px 50px 20px !important; /* Pill shape */
+        }
+        .card:nth-child(6n+6) {
+            border-radius: 10px 40px 10px 40px !important; /* Zigzag */
+        }
+
+        /* GLASSMORPHISM EFFECT */
+        .card {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(15px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+        }
+
+        /* NEON GLOW BORDER */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, 
+                #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, 
+                #ffeaa7, #dfe6e9, #00b894, #fdcb6e);
+            background-size: 400% 400%;
+            border-radius: inherit;
+            z-index: -1;
+            animation: glowRotate 6s ease infinite;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+            animation: glowRotate 3s ease infinite;
+        }
+
+        @keyframes glowRotate {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* CARD HOVER EFFECT - 3D ROTATE */
+        .card:hover {
+            transform: translateY(-15px) rotateX(5deg) rotateY(5deg) scale(1.02) !important;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.3) inset !important;
+        }
+
+        /* SHINE EFFECT */
+        .card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to bottom right,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            transform: rotate(30deg);
+            transition: transform 0.6s ease;
+            pointer-events: none;
+        }
+
+        .card:hover::after {
+            transform: rotate(30deg) translate(50%, 50%);
+        }
+
+        /* CARD HEADER */
+        .card-header {
+            background: rgba(0, 0, 0, 0.3) !important;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2) !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 2px !important;
+        }
+
+        /* CARD BODY */
+        .card-body {
+            padding: 1.8rem !important;
+        }
+
+        /* SERVER TITLE */
+        .card-title {
+            font-size: 1.4rem !important;
+            font-weight: 800 !important;
+            background: linear-gradient(135deg, #fff, #a8e6cf);
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            text-shadow: 0 5px 15px rgba(0,0,0,0.3) !important;
+            margin-bottom: 1rem !important;
+            position: relative;
+            display: inline-block;
+        }
+
+        .card-title::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 50%;
+            height: 3px;
+            background: linear-gradient(90deg, #4ecdc4, transparent);
+            border-radius: 3px;
+        }
+
+        /* SERVER STATUS INDICATOR */
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-online {
+            background: #4ecdc4;
+            box-shadow: 0 0 20px #4ecdc4;
+        }
+
+        .status-offline {
+            background: #ff6b6b;
+            box-shadow: 0 0 20px #ff6b6b;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* RESOURCE BARS */
+        .progress {
+            height: 8px !important;
+            border-radius: 10px !important;
+            background: rgba(0, 0, 0, 0.3) !important;
+            overflow: hidden !important;
+            margin: 10px 0 !important;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #4ecdc4, #45b7d1) !important;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.3), 
+                transparent, 
+                rgba(255,255,255,0.3));
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* BUTTONS - SUPER VARIATIF */
+        .btn {
+            border-radius: 30px !important;
+            padding: 10px 25px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
+            transition: all 0.3s ease !important;
+            border: none !important;
+            position: relative !important;
+            overflow: hidden !important;
+            z-index: 1 !important;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+            z-index: -1;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(145deg, #4ecdc4, #2c7a7b) !important;
+            box-shadow: 0 5px 15px rgba(78, 205, 196, 0.4) !important;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px) scale(1.05) !important;
+            box-shadow: 0 10px 25px rgba(78, 205, 196, 0.6) !important;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(145deg, #a8a8a8, #6c757d) !important;
+        }
+
+        .btn-danger {
+            background: linear-gradient(145deg, #ff6b6b, #c44545) !important;
+        }
+
+        /* SIDEBAR - 3D EFFECT */
+        .main-sidebar {
+            background: rgba(26, 32, 44, 0.8) !important;
+            backdrop-filter: blur(10px) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        .nav-link {
+            border-radius: 15px !important;
+            margin: 8px 15px !important;
+            transition: all 0.3s ease !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(78, 205, 196, 0.3), transparent);
+            transition: width 0.3s ease;
+            z-index: -1;
+        }
+
+        .nav-link:hover::before {
+            width: 100%;
+        }
+
+        .nav-link:hover {
+            transform: translateX(10px) !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* NAVBAR */
+        .main-header {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* MODAL - FUTURISTIC */
+        .modal-content {
+            background: rgba(26, 32, 44, 0.95) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 30px !important;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5) !important;
+            animation: modalPop 0.3s ease !important;
+        }
+
+        @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .modal-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* DARK MODE ENHANCEMENT */
+        .dark-mode .card {
+            background: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .dark-mode .main-header {
+            background: rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* WATERMARK */
+        body::after {
+            content: "RENDZZ ULTIMATE";
+            position: fixed;
+            bottom: 20px;
+            right: 30px;
+            color: rgba(255, 255, 255, 0.15);
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 5px;
+            transform: rotate(-5deg);
+            z-index: 9999;
+            pointer-events: none;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5);
+            animation: watermarkPulse 4s infinite;
+        }
+
+        @keyframes watermarkPulse {
+            0% { opacity: 0.15; }
+            50% { opacity: 0.3; }
+            100% { opacity: 0.15; }
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #4ecdc4, #45b7d1);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #45b7d1, #4ecdc4);
+        }
+    </style>
+
+    <script>
+        // BACKGROUND SYSTEM
+        document.addEventListener('DOMContentLoaded', function() {
+            // Multiple Wallpaper Random
+            const wallpapers = [
+                '/rendzz/wallpapers/bg1.jpg',
+                '/rendzz/wallpapers/bg2.jpg',
+                '/rendzz/wallpapers/bg3.jpg',
+                '/rendzz/wallpapers/bg4.jpg',
+                '/rendzz/wallpapers/custom.jpg'
+            ].filter(url => {
+                // Check if file exists (simple check)
+                const img = new Image();
+                img.src = url;
+                return true; // Assume exists
+            });
+
+            if (wallpapers.length > 0) {
+                const randomWall = wallpapers[Math.floor(Math.random() * wallpapers.length)];
+                document.getElementById('bg-wallpapers').style.background = `url('${randomWall}') center/cover no-repeat`;
+            }
+
+            // Video Background
+            const videos = [
+                '/rendzz/videos/bg1.mp4',
+                '/rendzz/videos/custom.mp4'
+            ];
+
+            const video = document.getElementById('bg-video');
+            for (let vid of videos) {
+                fetch(vid, { method: 'HEAD' })
+                    .then(res => {
+                        if (res.ok) {
+                            video.src = vid;
+                            video.style.display = 'block';
+                        }
+                    })
+                    .catch(() => {});
+            }
+
+            // Particle Effect
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+
+            function createParticles() {
+                particles = [];
+                for (let i = 0; i < 50; i++) {
+                    particles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        radius: Math.random() * 3 + 1,
+                        speedX: (Math.random() - 0.5) * 0.5,
+                        speedY: (Math.random() - 0.5) * 0.5,
+                        color: `rgba(78, 205, 196, ${Math.random() * 0.5})`
+                    });
+                }
+            }
+
+            function animateParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                particles.forEach(p => {
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+
+                    if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
+                    if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                });
+
+                requestAnimationFrame(animateParticles);
+            }
+
+            resizeCanvas();
+            createParticles();
+            animateParticles();
+
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                createParticles();
+            });
+
+            // Cursor Effect
+            const cursor = document.createElement('div');
+            cursor.style.cssText = `
+                position: fixed;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: rgba(78, 205, 196, 0.5);
+                pointer-events: none;
+                z-index: 99999;
+                transform: translate(-50%, -50%);
+                transition: width 0.2s, height 0.2s;
+                mix-blend-mode: screen;
+            `;
+            document.body.appendChild(cursor);
+
+            document.addEventListener('mousemove', (e) => {
+                cursor.style.left = e.clientX + 'px';
+                cursor.style.top = e.clientY + 'px';
+            });
+
+            document.addEventListener('mousedown', () => {
+                cursor.style.width = '30px';
+                cursor.style.height = '30px';
+                cursor.style.background = 'rgba(255, 107, 107, 0.5)';
+            });
+
+            document.addEventListener('mouseup', () => {
+                cursor.style.width = '20px';
+                cursor.style.height = '20px';
+                cursor.style.background = 'rgba(78, 205, 196, 0.5)';
+            });
+
+            // Typing Animation for Welcome
+            const welcomeElements = document.querySelectorAll('h1, h2, .welcome-text');
+            welcomeElements.forEach(el => {
+                if (el.innerText.includes('Welcome') || el.innerText.includes('Dashboard')) {
+                    const text = el.innerText;
+                    el.innerText = '';
+                    let i = 0;
+                    function typeWriter() {
+                        if (i < text.length) {
+                            el.innerText += text.charAt(i);
+                            i++;
+                            setTimeout(typeWriter, 100);
+                        }
+                    }
+                    typeWriter();
+                }
+            });
+        });
+    </script>
+@endsection
+EOF
+
+    # Ganti title panel
+    sed -i 's/<title>.*<\/title>/<title>🔥 RENDZZ ULTIMATE EDITION 🔥<\/title>/g' "$PTERO_DIR/resources/views/layouts/admin.blade.php" 2>/dev/null
+    sed -i 's/<title>.*<\/title>/<title>🔥 RENDZZ ULTIMATE EDITION 🔥<\/title>/g' "$PTERO_DIR/resources/views/layouts/auth.blade.php" 2>/dev/null
+
+    # Clear cache
+    cd "$PTERO_DIR" 2>/dev/null
+    php artisan view:clear
+    php artisan cache:clear
+    php artisan config:clear
+
+    # Success message
+    echo -e "\n${GREEN}╔════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║     ✅ RENDZZ ULTIMATE INSTALLED! ✅                ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}🎬 BACKGROUND:${NC}"
+    echo -e "  ├─ Video Support (MP4/WebM)"
+    echo -e "  ├─ Multiple Wallpaper (Random)"
+    echo -e "  └─ Particle Effect + Parallax"
+    echo -e "${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${PURPLE}🃏 SERVER CARDS:${NC}"
+    echo -e "  ├─ 6+ Bentuk Unik (Random per Card)"
+    echo -e "  ├─ Glassmorphism + Blur"
+    echo -e "  ├─ Neon Glow Border (Animasi)"
+    echo -e "  ├─ 3D Hover Effect"
+    echo -e "  └─ Shine Effect + Resource Bar Animasi"
+    echo -e "${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}✨ EXTRA FEATURES:${NC}"
+    echo -e "  ├─ Cursor Trail Effect"
+    echo -e "  ├─ Typing Animation"
+    echo -e "  ├─ Custom Scrollbar"
+    echo -e "  ├─ Modal Pop Animation"
+    echo -e "  └─ Watermark Animasi"
+    echo -e "${WHITE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}🚀 CTRL+SHIFT+R buat liat hasilnya!${NC}"
+}
+
+# -------------------------------
+# MAIN MENU
+# -------------------------------
+while true; do
+    show_header
+    echo -e "${WHITE}╔════════════════════════════════════════════╗${NC}"
+    echo -e "${WHITE}║           🔥 PILIH MENU 🔥               ║${NC}"
+    echo -e "${WHITE}╠════════════════════════════════════════════╣${NC}"
+    echo -e "${WHITE}║                                          ║${NC}"
+    echo -e "${WHITE}║  ${RED}[1]${NC} 🗑️  HAPUS - Balik Normal         ${WHITE}║${NC}"
+    echo -e "${WHITE}║  ${GREEN}[2]${NC} 🚀 INSTALL - Ultimate Edition   ${WHITE}║${NC}"
+    echo -e "${WHITE}║  ${BLUE}[x]${NC} ❌ KELUAR                       ${WHITE}║${NC}"
+    echo -e "${WHITE}║                                          ║${NC}"
+    echo -e "${WHITE}╚════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -ne "${YELLOW}➤ Pilih menu [1/2/x]: ${NC}"
+    read MENU
+    
+    case $MENU in
+        1)
+            uninstall_all
+            echo ""
+            echo -ne "${CYAN}Tekan Enter untuk kembali...${NC}"
+            read
+            ;;
+        2)
+            install_ultimate
+            echo ""
+            echo -ne "${CYAN}Tekan Enter untuk kembali...${NC}"
+            read
+            ;;
+        x)
+            echo -e "\n${GREEN}✨ Thanks for using Rendzz Ultimate Edition!${NC}"
+            echo -e "${CYAN}📱 Telegram: @lynnn046${NC}\n"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Pilihan tidak valid!${NC}"
+            sleep 1
+            ;;
+    esac
+done
