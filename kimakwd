@@ -1,0 +1,255 @@
+#!/bin/bash
+
+# ==================== KONFIGURASI ====================
+# 🔑 API KEY ATLANTIC (dari Anda)
+API_ATLANTIC="sZtKMW3BIL96FFMAnIIO22lRiO1cadQsxXHo7ljB2pZTVnu56EraFGqnGsLwqaZUFrGA9GT99kzNNg1BSU8mZpsavAHYZR6zC0pr"
+
+# 🔐 API KEY RUMAHOTP (sama kelihatannya)
+API_RUMAHOTP="sZtKMW3BIL96FFMAnIIO22lRiO1cadQsxXHo7ljB2pZTVnu56EraFGqnGsLwqaZUFrGA9GT99kzNNg1BSU8mZpsavAHYZR6zC0pr"
+
+# 💳 Data tujuan
+BANK_CODE="GOPAY"
+DEST_NUMBER="083152799571"
+DEST_NAME="HANARIANTI"
+
+# 💰 Saldo
+SALDO=16300
+FEE=2000
+NET=$((SALDO - FEE))
+
+# ==================== WARNA ====================
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# ==================== FUNGSI ====================
+
+# Generate REF ID
+generate_ref_id() {
+    echo "wd_$(date +%s)_$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 9 | head -n 1)"
+}
+
+# Format Rupiah
+format_rupiah() {
+    echo "Rp $(echo $1 | sed ':a;s/\B[0-9]\{3\}\>/.&/;ta')"
+}
+
+# Tampilkan header
+show_header() {
+    clear
+    echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║     💰 WITHDRAW GATEWAY - BASH VERSION       ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+# Tampilkan info saldo
+show_saldo() {
+    echo -e "${YELLOW}📊 INFORMASI SALDO:${NC}"
+    echo -e "   Saldo tersedia  : ${GREEN}$(format_rupiah $SALDO)${NC}"
+    echo -e "   Fee admin        : ${RED}$(format_rupiah $FEE)${NC}"
+    echo -e "   Net diterima     : ${GREEN}$(format_rupiah $NET)${NC}"
+    echo ""
+    echo -e "${YELLOW}💳 TUJUAN WITHDRAW:${NC}"
+    echo -e "   Bank            : ${BLUE}$BANK_CODE${NC}"
+    echo -e "   No. Tujuan      : ${BLUE}$DEST_NUMBER${NC}"
+    echo -e "   Nama            : ${BLUE}$DEST_NAME${NC}"
+    echo ""
+}
+
+# Withdraw Atlantic
+withdraw_atlantic() {
+    local nominal=$1
+    local note=$2
+    local ref_id=$(generate_ref_id)
+    
+    echo -e "${PURPLE}🌊 ATLANTIC WITHDRAW${NC}"
+    echo -e "${YELLOW}─────────────────────────────${NC}"
+    echo -e "REF ID    : $ref_id"
+    echo -e "Nominal   : $(format_rupiah $nominal)"
+    echo -e "Note      : $note"
+    echo -e "${YELLOW}─────────────────────────────${NC}"
+    echo -e "${CYAN}⏳ Mengirim request...${NC}"
+    
+    # Data untuk dikirim
+    local data="api_key=${API_ATLANTIC}&ref_id=${ref_id}&kode_bank=${BANK_CODE}&nomor_akun=${DEST_NUMBER}&nama_pemilik=${DEST_NAME}&nominal=${nominal}&email=bot@telegram.com&phone=${DEST_NUMBER}&note=${note}"
+    
+    # Kirim pake curl
+    response=$(curl -s -X POST "https://atlantich2h.com/transfer/create" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "$data" \
+        --max-time 15)
+    
+    # Cek response
+    if [ $? -eq 0 ] && [ ! -z "$response" ]; then
+        echo -e "${GREEN}✅ Response diterima!${NC}"
+        echo "$response" | jq '.' 2>/dev/null || echo "$response"
+    else
+        echo -e "${RED}❌ Gagal: Network Error / No Response${NC}"
+    fi
+}
+
+# Withdraw RumahOTP
+withdraw_rumahotp() {
+    local nominal=$1
+    local ref_id=$(generate_ref_id)
+    
+    echo -e "${PURPLE}🏡 RUMAHOTP WITHDRAW${NC}"
+    echo -e "${YELLOW}─────────────────────────────${NC}"
+    echo -e "REF ID    : $ref_id"
+    echo -e "Nominal   : $(format_rupiah $nominal)"
+    echo -e "${YELLOW}─────────────────────────────${NC}"
+    echo -e "${CYAN}⏳ Mengirim request...${NC}"
+    
+    # Data JSON
+    local json_data="{\"api_key\":\"${API_RUMAHOTP}\",\"action\":\"transfer\",\"code\":\"${BANK_CODE}\",\"target\":\"${DEST_NUMBER}\",\"amount\":${nominal},\"reff_id\":\"${ref_id}\"}"
+    
+    # Kirim pake curl
+    response=$(curl -s -X POST "https://rumahotp.com/api/transfer" \
+        -H "Content-Type: application/json" \
+        -d "$json_data" \
+        --max-time 15)
+    
+    # Cek response
+    if [ $? -eq 0 ] && [ ! -z "$response" ]; then
+        echo -e "${GREEN}✅ Response diterima!${NC}"
+        echo "$response" | jq '.' 2>/dev/null || echo "$response"
+    else
+        echo -e "${RED}❌ Gagal: Network Error / No Response${NC}"
+        echo -e "${YELLOW}⚠️  Catatan: Endpoint RumahOTP mungkin berbeda${NC}"
+    fi
+}
+
+# Withdraw semua saldo
+withdraw_all() {
+    local gateway=$1
+    
+    echo ""
+    echo -e "${YELLOW}💰 Menarik SEMUA saldo: $(format_rupiah $SALDO)${NC}"
+    echo -e "${YELLOW}💸 Fee: $(format_rupiah $FEE) | Net: $(format_rupiah $NET)${NC}"
+    echo ""
+    
+    read -p "Lanjutkan? (y/n): " confirm
+    if [[ $confirm == "y" || $confirm == "Y" ]]; then
+        if [ "$gateway" == "atlantic" ]; then
+            withdraw_atlantic $SALDO "Tarik semua saldo"
+        else
+            withdraw_rumahotp $SALDO
+        fi
+    else
+        echo -e "${RED}❌ Dibatalkan${NC}"
+    fi
+}
+
+# Withdraw custom nominal
+withdraw_custom() {
+    echo ""
+    read -p "Masukkan nominal: " nominal
+    
+    # Validasi angka
+    if ! [[ "$nominal" =~ ^[0-9]+$ ]] || [ "$nominal" -le 0 ]; then
+        echo -e "${RED}❌ Nominal tidak valid!${NC}"
+        return
+    fi
+    
+    # Cek saldo
+    if [ "$nominal" -gt "$SALDO" ]; then
+        echo -e "${RED}❌ Saldo tidak cukup! Maks: $(format_rupiah $SALDO)${NC}"
+        return
+    fi
+    
+    local net_custom=$((nominal - FEE))
+    echo -e "Nominal   : $(format_rupiah $nominal)"
+    echo -e "Net       : $(format_rupiah $net_custom)"
+    echo ""
+    
+    echo "Pilih Gateway:"
+    echo "1. Atlantic"
+    echo "2. RumahOTP"
+    read -p "Pilih (1/2): " gw
+    
+    read -p "Lanjutkan? (y/n): " confirm
+    if [[ $confirm == "y" || $confirm == "Y" ]]; then
+        if [ "$gw" == "1" ]; then
+            withdraw_atlantic $nominal "Withdraw custom"
+        elif [ "$gw" == "2" ]; then
+            withdraw_rumahotp $nominal
+        else
+            echo -e "${RED}❌ Gateway tidak valid${NC}"
+        fi
+    fi
+}
+
+# Cek dependencies
+check_deps() {
+    if ! command -v curl &> /dev/null; then
+        echo -e "${RED}❌ curl tidak ditemukan. Install dulu:${NC}"
+        echo "   apt-get install curl  (Ubuntu/Debian)"
+        echo "   yum install curl      (CentOS/RHEL)"
+        echo "   pkg install curl      (Termux)"
+        exit 1
+    fi
+    
+    # Optional: jq untuk format JSON
+    if command -v jq &> /dev/null; then
+        HAS_JQ=true
+    else
+        HAS_JQ=false
+        echo -e "${YELLOW}⚠️  jq tidak terinstall (untuk format JSON yang lebih bagus)${NC}"
+        echo "   Install: apt-get install jq"
+        echo ""
+    fi
+}
+
+# ==================== MAIN MENU ====================
+main() {
+    check_deps
+    
+    while true; do
+        show_header
+        show_saldo
+        
+        echo -e "${CYAN}📋 MENU:${NC}"
+        echo "1. 🌊 Withdraw ATLANTIC (Tarik semua)"
+        echo "2. 🏡 Withdraw RUMAHOTP (Tarik semua)"
+        echo "3. 💰 Withdraw nominal custom"
+        echo "4. 🔍 Test koneksi ke Atlantic"
+        echo "5. ❌ Keluar"
+        echo ""
+        read -p "👉 Pilih menu (1-5): " menu
+        
+        case $menu in
+            1)
+                withdraw_all "atlantic"
+                ;;
+            2)
+                withdraw_all "rumahotp"
+                ;;
+            3)
+                withdraw_custom
+                ;;
+            4)
+                echo ""
+                echo -e "${CYAN}🔍 Test koneksi ke Atlantic...${NC}"
+                curl -I "https://atlantich2h.com" --max-time 5
+                ;;
+            5)
+                echo -e "${GREEN}👋 Bye!${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}❌ Pilihan tidak valid!${NC}"
+                ;;
+        esac
+        
+        echo ""
+        read -p "Tekan Enter untuk kembali ke menu..."
+    done
+}
+
+# Run main function
+main
